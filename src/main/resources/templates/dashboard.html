@@ -1,0 +1,14 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>MQTT Daten</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+
+<ul th:each="link: ${groups}">
+    <li><a th:href="${link.href}" th:text="${link.label}">Example Link</a></li>
+</ul>
+
+</body>
+</html>
