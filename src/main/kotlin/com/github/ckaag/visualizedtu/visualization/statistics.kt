@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 import org.springframework.web.servlet.view.RedirectView
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
@@ -48,7 +49,7 @@ class DashboardController(
         val datasets = dashboardService.getScatterGraphDataSets(group, start, end)
         model.addAttribute("datasets", objectMapper.writeValueAsString(datasets))
         //model.addAttribute("labels", getLabels(datasets))
-        model.addAttribute("header", group)
+        model.addAttribute("header", URLDecoder.decode(group, StandardCharsets.UTF_8))
         return "dashboard"
     }
 
@@ -59,7 +60,12 @@ class DashboardController(
 
 data class SingleDataPoint(val x: String, val y: Double)
 data class LabeledLinks(val label: String, val href: String)
-data class DataSet(val label: String, val data: List<SingleDataPoint>, val borderWidth: Int = 1)
+data class DataSet(
+    val label: String,
+    val data: List<SingleDataPoint>,
+    val borderWidth: Int = 2,
+    val fill: Boolean = true
+)
 
 private fun String.encodedGroupName(): String {
     return URLEncoder.encode(this, StandardCharsets.UTF_8)
@@ -83,10 +89,10 @@ class DashboardService(private val repo: MqttDataPointRepository, private val co
     }
 
     fun getScatterGraphDataSets(group: String, start: LocalDateTime, end: LocalDateTime): List<DataSet> {
-        val entries = repo.findAllByChartGroupAndId_IsoTimestampGreaterThanAndId_IsoTimestampLessThan(
-            group,
-            start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-            end.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        val entries = repo.findAll(
+            //group,
+            //start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            // end.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         )
         val result = mutableMapOf<String, MutableMap<String, Double>>()
 

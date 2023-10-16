@@ -10,5 +10,61 @@
     <li><a th:href="${link.href}" th:text="${link.label}">Example Link</a></li>
 </ul>
 
+<div>
+    <canvas id="myChart"></canvas>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script th:inline="text">
+
+
+
+    const ctx = document.getElementById('myChart');
+
+    let data =  {
+        datasets: [(${datasets})],
+      };
+
+
+    new Chart(ctx, {
+      type: 'line',
+      data: data,
+       options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            title: {
+              display: true,
+              text: '[[${header}]]',
+            }
+          },
+          scales: {
+              x: {
+                type: 'time',
+                time: {
+                  unit: 'minute'
+                },
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'value'
+                }
+              }
+            },
+        },
+    });
+
+</script>
+
 </body>
 </html>

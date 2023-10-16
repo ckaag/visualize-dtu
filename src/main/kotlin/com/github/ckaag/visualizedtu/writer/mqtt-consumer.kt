@@ -116,9 +116,9 @@ class MqttListener(private val config: VisualizerProperties, private val repo: M
             MqttDataPoint(id, chartGroup, 0.0, 0)
         }
 
-        val sum = entry.sumOfValues * entry.sumOfValues + msg.payload.let { String(it).toDouble() }
-        entry.sumOfValues = sum
+        val sum = entry.sumOfValues + msg.payload.let { String(it).toDouble() }
         entry.numberOfValues += 1
+        entry.sumOfValues = sum
         entry.chartGroup = chartGroup
 
         repo.save(entry)
