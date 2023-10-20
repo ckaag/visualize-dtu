@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>MQTT Daten</title>
+    <title>Solar MQTT Daten</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
 <body>
@@ -10,13 +10,20 @@
     <li><a th:href="${link.href}" th:text="${link.label}">Example Link</a></li>
 </ul>
 
+<h2><span th:text="${datumHeute}">01. Januar 1970</span></h2>
+<span th:if= "${previous != null}">
+<a th:href="${previous}">Vorheriger Tag</a>
+</span>
+<span th:if= "${next != null}">
+<a th:href="${next}">Nächster Tag Tag</a>
+</span>
 <div>
     <canvas id="myChart"></canvas>
 </div>
 
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
 <script th:inline="text">
 

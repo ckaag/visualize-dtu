@@ -17,7 +17,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import kotlin.jvm.optionals.getOrNull
 
 
 @Controller
@@ -44,12 +47,33 @@ class DashboardController(
         @RequestParam(name = "end", required = true) end: LocalDateTime,
         model: Model
     ): String {
+        val decodedGroup = URLDecoder.decode(group, StandardCharsets.UTF_8)
         val groupsAndLinks = dashboardService.getGroupsAndLinks()
         model.addAttribute("groups", groupsAndLinks)
-        val datasets = dashboardService.getScatterGraphDataSets(group, start, end)
-        model.addAttribute("datasets", objectMapper.writeValueAsString(datasets))
+        val datasets = dashboardService.getScatterGraphDataSets(decodedGroup, start, end)
+        model.addAttribute("datasets", objectMapper.writeValueAsString(datasets.first))
+        model.addAttribute(
+            "next",
+            (datasets.second.next?.let {
+                "?start=${
+                    it.atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                }&end=${it.atStartOfDay().withHour(23).withMinute(59).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)}"
+            })
+        )
+        model.addAttribute(
+            "previous",
+            (datasets.second.previous?.let {
+                "?start=${
+                    it.atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                }&end=${it.atStartOfDay().withHour(23).withMinute(59).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)}"
+            })
+        )
+        model.addAttribute(
+            "datumHeute",
+            start.toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
+        )
         //model.addAttribute("labels", getLabels(datasets))
-        model.addAttribute("header", URLDecoder.decode(group, StandardCharsets.UTF_8))
+        model.addAttribute("header", decodedGroup)
         return "dashboard"
     }
 
@@ -88,11 +112,15 @@ class DashboardService(private val repo: MqttDataPointRepository, private val co
         }
     }
 
-    fun getScatterGraphDataSets(group: String, start: LocalDateTime, end: LocalDateTime): List<DataSet> {
-        val entries = repo.findAll(
-            //group,
-            //start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-            // end.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    fun getScatterGraphDataSets(
+        group: String,
+        start: LocalDateTime,
+        end: LocalDateTime
+    ): Pair<List<DataSet>, ForwardBackward> {
+        val entries = repo.findAllByChartGroupAndId_IsoTimestampGreaterThanAndId_IsoTimestampLessThan(
+            group,
+            start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            end.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         )
         val result = mutableMapOf<String, MutableMap<String, Double>>()
 
@@ -102,13 +130,42 @@ class DashboardService(private val repo: MqttDataPointRepository, private val co
             dataSet[p.id.isoTimestamp] = p.sumOfValues / p.numberOfValues
         }
 
-
-        //wenn sollte auch gleich korrekt interpolieren bei fehlenden Einträgen an dieser Stelle, damit alle Datenpunkte vorhanden sind. Aber nur notwendig wenn wir nicht X/Y nehmen
-
-        return result.entries.map { (k, v) ->
-            DataSet(
-                k,
-                v.entries.sortedBy { it.key }.map { SingleDataPoint(it.key, it.value) })
+        val maxTimestamp = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDate.now().atStartOfDay().plusYears(1000))
+        val previous: LocalDate? = (entries.firstOrNull()?.id?.isoTimestamp ?: maxTimestamp)?.let {
+            repo.findFirstByChartGroupAndId_IsoTimestampLessThanOrderById_IsoTimestampDesc(
+                group,
+                it
+            )
+        }?.getOrNull()?.id?.isoTimestamp?.let {
+            ZonedDateTime.parse(it).toLocalDate()
         }
+        val minTimestamp = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDate.now().atStartOfDay().minusYears(1000))
+
+
+        val next: LocalDate? =
+            (entries.lastOrNull()?.id?.isoTimestamp ?: (if (previous != null) null else minTimestamp))?.let {
+                repo.findFirstByChartGroupAndId_IsoTimestampGreaterThanOrderById_IsoTimestampAsc(
+                    group,
+                    it
+                )
+            }?.getOrNull()?.id?.isoTimestamp?.let {
+                ZonedDateTime.parse(it).toLocalDate()
+            }
+
+        return Pair(
+            result.entries.map { (k, v) ->
+                DataSet(
+                    k,
+                    v.entries.sortedBy { it.key }.map { SingleDataPoint(it.key, it.value) })
+            },
+            if (next == null && previous != null && previous.isAfter(end.toLocalDate())) ForwardBackward(
+                null,
+                previous
+            ) else ForwardBackward(previous, next)
+        )
     }
+}
+
+data class ForwardBackward(val previous: LocalDate?, val next: LocalDate?) {
+
 }

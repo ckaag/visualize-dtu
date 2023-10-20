@@ -7,6 +7,7 @@ import jakarta.persistence.Entity
 import org.springframework.data.repository.CrudRepository
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.*
 
 @Entity
 open class MqttDataPoint(
@@ -42,4 +43,6 @@ fun ZonedDateTime.toId(topic: String, timePattern: String): DataPointId {
 
 interface MqttDataPointRepository : CrudRepository<MqttDataPoint, DataPointId> {
     fun findAllByChartGroupAndId_IsoTimestampGreaterThanAndId_IsoTimestampLessThan(chartGroup: String, start: String, end: String): List<MqttDataPoint>
+    fun findFirstByChartGroupAndId_IsoTimestampLessThanOrderById_IsoTimestampDesc(chartGroup: String, start: String): Optional<MqttDataPoint>
+    fun findFirstByChartGroupAndId_IsoTimestampGreaterThanOrderById_IsoTimestampAsc(chartGroup: String, end: String): Optional<MqttDataPoint>
 }
