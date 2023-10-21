@@ -15,11 +15,8 @@ import org.springframework.web.servlet.view.RedirectView
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZonedDateTime
+import java.time.*
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import kotlin.jvm.optionals.getOrNull
 
 
@@ -70,7 +67,7 @@ class DashboardController(
         )
         model.addAttribute(
             "datumHeute",
-            start.toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL))
+            start.toLocalDate().format(DateTimeFormatter.ofPattern("dd. MMMM yyyy", java.util.Locale.GERMANY))
         )
         //model.addAttribute("labels", getLabels(datasets))
         model.addAttribute("header", decodedGroup)
@@ -127,7 +124,7 @@ class DashboardService(private val repo: MqttDataPointRepository, private val co
         entries.forEach { p: MqttDataPoint ->
             val dataSet =
                 result.computeIfAbsent(p.id.mqttTopic) { return@computeIfAbsent mutableMapOf<String, Double>() }
-            dataSet[p.id.isoTimestamp] = p.sumOfValues / p.numberOfValues
+            dataSet[p.id.isoTimestamp.toGermany()] = p.sumOfValues / p.numberOfValues
         }
 
         val maxTimestamp = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDate.now().atStartOfDay().plusYears(1000))
@@ -164,6 +161,11 @@ class DashboardService(private val repo: MqttDataPointRepository, private val co
             ) else ForwardBackward(previous, next)
         )
     }
+}
+
+private fun String.toGermany(): String {
+    return ZonedDateTime.parse(this).withZoneSameLocal(ZoneId.of("Europe/Berlin")).withZoneSameInstant(ZoneOffset.UTC)
+        .withZoneSameLocal(ZoneId.of("Europe/Berlin")).format(DateTimeFormatter.ISO_DATE_TIME)
 }
 
 data class ForwardBackward(val previous: LocalDate?, val next: LocalDate?) {

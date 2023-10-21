@@ -73,7 +73,8 @@ class VisualizerProperties(
     public var pointConfigs: List<PointStreamConfiguration> = listOf(
         PointStreamConfiguration("Watt täglich", "inverter/+/+/P_AC"),
         PointStreamConfiguration("Watt täglich", "inverter/+/+/P_DC"),
-        PointStreamConfiguration("Total", "inverter/+/+/total", "yyyy-MM-dd'T00:00:00.000Z'")
+        PointStreamConfiguration("Lebenszeit Wh", "inverter/+/+/YieldTotal", "yyyy-MM-dd'T00:00:00.000Z'"),
+        PointStreamConfiguration("Heute kWh", "inverter/+/+/YieldDay", "yyyy-MM-dd'T00:00:00.000Z'")
     ),
     public var publicIp: String = "192.168.0.163",
     public var mqttPort: String = "1883",
