@@ -73,7 +73,7 @@ class VisualizerProperties(
         PointStreamConfiguration("Heute Watt", "inverter/+/+/P_AC", TimeAggregation.AVERAGE_5_MINUTES, "W"),
         PointStreamConfiguration("Heute Watt", "inverter/+/+/P_DC", TimeAggregation.AVERAGE_5_MINUTES, "W")
     ),
-    public var publicIp: String = "192.168.0.163",
+    public var publicIp: String = "192.168.0.2",
     public var mqttPort: String = "1883",
     public var subscriberId: String = "visual-ahoy",
 )

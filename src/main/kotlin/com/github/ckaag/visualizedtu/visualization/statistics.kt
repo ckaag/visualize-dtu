@@ -88,7 +88,7 @@ class DashboardService(
                     chartGroup,
                     props[0].suffixUnit,
                     if (props[0].aggregation === TimeAggregation.DAILY_LAST) {
-                        allData.find { it.chartGroup === chartGroup }?.let { it.sumOfValues / it.numberOfValues }
+                        allData.find { it.chartGroup == chartGroup }?.let { it.sumOfValues / it.numberOfValues }
                     } else {
                         null
                     },
@@ -112,10 +112,10 @@ class DashboardService(
         chartGroup: String,
         props: List<PointStreamConfiguration>
     ): List<DataSet> {
-        return allData.filter { it.chartGroup === chartGroup }.groupBy { it.id.mqttTopic }.entries.map { (key, value) ->
+        return allData.filter { it.chartGroup == chartGroup }.groupBy { it.id.mqttTopic }.entries.map { (key, value) ->
             DataSet(
                 key,
-                value.map { SingleDataPoint(it.id.instant.toGermanyIsoTime(), it.sumOfValues / it.sumOfValues) })
+                value.map { SingleDataPoint(it.id.instant.toGermanyIsoTime(), it.sumOfValues / it.numberOfValues) })
         }
     }
 

@@ -22,7 +22,7 @@
 
     <div th:if="${metric.directValue != null}">
         <h4><span th:text="${metric.label}">XYZ</span></h4>
-        <span th:text="metric.directValue">42.0</span><span th:text="metric.suffixUnit">L</span>
+        <span th:text="${metric.directValue}">42.0</span> <span th:text="${metric.suffixUnit}">L</span>
     </div>
     <div th:if="${metric.dataSetsJson != null}">
 
