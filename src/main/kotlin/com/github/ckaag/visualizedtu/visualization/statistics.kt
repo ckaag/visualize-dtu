@@ -47,11 +47,11 @@ class DashboardController(private val dashboardService: DashboardService) {
         )
         model.addAttribute(
             "next",
-            metrics.second.next?.let { d -> "/daily/" + d.plusDays(1).format(DateTimeFormatter.ISO_DATE) }
+            metrics.second.next?.let { d -> "/daily/" + d.format(DateTimeFormatter.ISO_DATE) }
         )
         model.addAttribute(
             "previous",
-            metrics.second.previous?.let { d -> "/daily/" + d.plusDays(1).format(DateTimeFormatter.ISO_DATE) }
+            metrics.second.previous?.let { d -> "/daily/" + d.format(DateTimeFormatter.ISO_DATE) }
         )
         return "daily"
     }
