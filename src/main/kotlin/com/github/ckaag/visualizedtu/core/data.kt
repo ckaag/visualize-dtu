@@ -26,8 +26,8 @@ open class MqttDataPoint(
 open class DataPointId(
     @Column(nullable = false)
     val date: LocalDate,
-    @Column(nullable = true)
-    val instant: Instant?, // null or a 5 minute interval set in the middle
+    @Column(nullable = false)
+    val instant: Instant, // null or a 5 minute interval set in the middle
     @Column(nullable = false)
     val mqttTopic: String, // MQTT topic exactly as it was received
 )
@@ -44,9 +44,13 @@ data class PointStreamConfiguration(
     val suffixUnit: String
 )
 
+private val NIL_INSTANT = Instant.ofEpochSecond(0)
+
 fun ZonedDateTime.toId(config: PointStreamConfiguration, topic: String): DataPointId {
     return DataPointId(this.toLocalDate(), when (config.aggregation) {
-        TimeAggregation.DAILY_LAST -> null
+        TimeAggregation.DAILY_LAST -> {
+            NIL_INSTANT
+        }
         TimeAggregation.AVERAGE_5_MINUTES -> {
             this.toInstant().epochSecond.let { epochSeconds -> Instant.ofEpochSecond(epochSeconds - (epochSeconds % 300) + 150) }
         }

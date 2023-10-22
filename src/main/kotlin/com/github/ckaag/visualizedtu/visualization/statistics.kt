@@ -15,16 +15,15 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes
 import org.springframework.web.servlet.view.RedirectView
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.time.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.jvm.optionals.getOrNull
 
 
 @Controller
-class DashboardController(
-    private val config: VisualizerProperties,
-    private val objectMapper: ObjectMapper, private val dashboardService: DashboardService
-) {
+class DashboardController(private val dashboardService: DashboardService) {
     @GetMapping
     fun dashboard(
         attributes: RedirectAttributes
@@ -48,21 +47,17 @@ class DashboardController(
         )
         model.addAttribute(
             "next",
-            metrics.second.next?.let { d -> "/daily/" + d.plusDays(1).format(DateTimeFormatter.ISO_DATE)}
+            metrics.second.next?.let { d -> "/daily/" + d.plusDays(1).format(DateTimeFormatter.ISO_DATE) }
         )
         model.addAttribute(
             "previous",
-            metrics.second.previous?.let { d -> "/daily/" + d.plusDays(1).format(DateTimeFormatter.ISO_DATE)}
+            metrics.second.previous?.let { d -> "/daily/" + d.plusDays(1).format(DateTimeFormatter.ISO_DATE) }
         )
         return "daily"
     }
 
 
     data class Metric(val label: String, val suffixUnit: String, val directValue: Double?, val dataSetsJson: String?)
-
-    private fun getLabels(datasets: List<DataSet>): List<String> {
-        return datasets.flatMap { ds -> ds.data.map { d -> d.toString() }.sorted().distinct() }
-    }
 }
 
 data class SingleDataPoint(val x: String, val y: Double)
@@ -120,21 +115,7 @@ class DashboardService(
         return allData.filter { it.chartGroup === chartGroup }.groupBy { it.id.mqttTopic }.entries.map { (key, value) ->
             DataSet(
                 key,
-                value.map { SingleDataPoint(it.id.instant!!.toGermanyIsoTime(), it.sumOfValues / it.sumOfValues) })
-        }
-    }
-
-    fun getGroupsAndLinks(): List<LabeledLinks> {
-        return config.pointConfigs.map { it.chartGroup }.distinct().sorted().map {
-            LabeledLinks(
-                it,
-                "/group/${it.encodedGroupName()}?start=${
-                    LocalDate.now().atStartOfDay().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                }&end=${
-                    LocalDate.now().atStartOfDay().withHour(23).withMinute(59)
-                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                }"
-            )
+                value.map { SingleDataPoint(it.id.instant.toGermanyIsoTime(), it.sumOfValues / it.sumOfValues) })
         }
     }
 
@@ -142,13 +123,5 @@ class DashboardService(
         return this.atZone(ZoneId.of("Europe/Berlin")).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     }
 
-    private fun String.toGermany(): String {
-        return ZonedDateTime.parse(this).withZoneSameLocal(ZoneId.of("Europe/Berlin"))
-            .withZoneSameInstant(ZoneOffset.UTC)
-            .withZoneSameLocal(ZoneId.of("Europe/Berlin")).format(DateTimeFormatter.ISO_DATE_TIME)
-    }
-
-    data class ForwardBackward(val previous: LocalDate?, val next: LocalDate?) {
-
-    }
+    data class ForwardBackward(val previous: LocalDate?, val next: LocalDate?)
 }
