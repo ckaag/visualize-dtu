@@ -6,12 +6,15 @@
 </head>
 <body>
 
+<span th:if="${up != null}">
+<a th:href="${up}">Hoch</a>
+</span>
 <h2><span th:text="${datumHeute}">01. Januar 1970</span></h2>
 <span th:if="${previous != null}">
-<a th:href="${previous}">Vorheriger Tag</a>
+<a th:href="${previous}">Vorheriger</a>
 </span>
 <span th:if="${next != null}">
-<a th:href="${next}">Nächster Tag</a>
+<a th:href="${next}">Nächster</a>
 </span>
 
 

@@ -36,15 +36,21 @@ enum class TimeAggregation {
     DAILY_LAST,
     AVERAGE_5_MINUTES
 }
+enum class MultiDayAggregation {
+    LAST,
+    SUM,
+    NONE
+}
 
 data class PointStreamConfiguration(
     val chartGroup: String,
     val positionFilter: String,
     val aggregation: TimeAggregation,
-    val suffixUnit: String
+    val suffixUnit: String,
+    val multiDayCombination: MultiDayAggregation = MultiDayAggregation.NONE
 )
 
-private val NIL_INSTANT = Instant.ofEpochSecond(0)
+internal val NIL_INSTANT = Instant.ofEpochSecond(0)
 
 fun ZonedDateTime.toId(config: PointStreamConfiguration, topic: String): DataPointId {
     return DataPointId(this.toLocalDate(), when (config.aggregation) {
@@ -61,6 +67,8 @@ fun ZonedDateTime.toId(config: PointStreamConfiguration, topic: String): DataPoi
 interface MqttDataPointRepository : CrudRepository<MqttDataPoint, DataPointId> {
 
     fun findById_DateOrderById_InstantAsc(date: LocalDate): List<MqttDataPoint>
+
+    fun findById_InstantAndId_DateGreaterThanEqualAndId_DateLessThanOrderById_DateAsc(nil: Instant, after: LocalDate, before: LocalDate): List<MqttDataPoint>
 
     fun findFirstById_DateLessThanOrderById_DateDesc(
         date: LocalDate

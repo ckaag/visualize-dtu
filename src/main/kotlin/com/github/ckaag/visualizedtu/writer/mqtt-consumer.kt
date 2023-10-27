@@ -69,7 +69,7 @@ class JdbcConfig(private val env: org.springframework.core.env.Environment) {
 class VisualizerProperties(
     public var pointConfigs: List<PointStreamConfiguration> = listOf(
         PointStreamConfiguration("Summe Gesamt", "inverter/+/+/YieldTotal", TimeAggregation.DAILY_LAST, "kWh"),
-        PointStreamConfiguration("Summe Heute", "inverter/+/+/YieldDay", TimeAggregation.DAILY_LAST, "Wh"),
+        PointStreamConfiguration("Summe Heute", "inverter/+/+/YieldDay", TimeAggregation.DAILY_LAST, "Wh", MultiDayAggregation.SUM),
         PointStreamConfiguration("Heute Watt", "inverter/+/+/P_AC", TimeAggregation.AVERAGE_5_MINUTES, "W"),
         PointStreamConfiguration("Heute Watt", "inverter/+/+/P_DC", TimeAggregation.AVERAGE_5_MINUTES, "W")
     ),

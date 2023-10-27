@@ -1,10 +1,7 @@
 package com.github.ckaag.visualizedtu.visualization
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.github.ckaag.visualizedtu.core.MqttDataPoint
-import com.github.ckaag.visualizedtu.core.MqttDataPointRepository
-import com.github.ckaag.visualizedtu.core.PointStreamConfiguration
-import com.github.ckaag.visualizedtu.core.TimeAggregation
+import com.github.ckaag.visualizedtu.core.*
 import com.github.ckaag.visualizedtu.writer.VisualizerProperties
 import org.springframework.stereotype.Controller
 import org.springframework.stereotype.Service
@@ -17,8 +14,11 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.LocalDate
+import java.time.Month
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.*
 import kotlin.jvm.optionals.getOrNull
 
 
@@ -53,9 +53,36 @@ class DashboardController(private val dashboardService: DashboardService) {
             "previous",
             metrics.second.previous?.let { d -> "/daily/" + d.format(DateTimeFormatter.ISO_DATE) }
         )
+        model.addAttribute("up", "/monthly/${date.withDayOfMonth(1)}")
         return "daily"
     }
 
+    @GetMapping("/monthly/{month}")
+    fun monthly(
+        @PathVariable("month") month: LocalDate,
+        model: Model
+    ): String {
+        model.addAttribute("next", "/monthly/${month.plusMonths(1)}")
+        model.addAttribute("previous", "/monthly/${month.minusMonths(1)}")
+        model.addAttribute("down", dashboardService.getDayLinks(month.month, month.year))
+        model.addAttribute("up", "/yearly/${month.year}")
+        model.addAttribute("data", dashboardService.getDays(month.month, month.year))
+        model.addAttribute("datumHeute", "${month.month.getDisplayName(TextStyle.FULL, Locale.GERMANY)} ${month.year}")
+        return "monthly"
+    }
+
+    @GetMapping("/yearly/{year}")
+    fun monthly(
+        @PathVariable("year") year: Int,
+        model: Model
+    ): String {
+        model.addAttribute("next", "/yearly/${year + (1)}")
+        model.addAttribute("previous", "/yearly/${year - (1)}")
+        model.addAttribute("down", dashboardService.getMonthLinks(year))
+        model.addAttribute("data", dashboardService.getMonths(year))
+        model.addAttribute("datumHeute", "Jahr $year")
+        return "yearly"
+    }
 
     data class Metric(val label: String, val suffixUnit: String, val directValue: Double?, val dataSetsJson: String?)
 }
@@ -123,5 +150,120 @@ class DashboardService(
         return this.atZone(ZoneId.of("Europe/Berlin")).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     }
 
+    fun getDays(month: Month, year: Int): List<BarChart> {
+        return repo.findById_InstantAndId_DateGreaterThanEqualAndId_DateLessThanOrderById_DateAsc(
+            NIL_INSTANT,
+            LocalDate.of(year, month, 1),
+            LocalDate.of(year, month, 1).plusMonths(1)
+        )
+            .groupBy { it.chartGroup }.entries
+            .mapNotNull { (k, v) ->
+                val config = getConfig(v[0].id.mqttTopic)
+                if (config.multiDayCombination == MultiDayAggregation.NONE) {
+                    return@mapNotNull null
+                }
+                val rawData = v.groupBy { it.id.mqttTopic }.entries.map { (topic, points) ->
+                    BarChartDataSet(topic, points.perDay(config.multiDayCombination))
+                }
+                val formatted: List<DataSet> = formatDataSet(rawData)
+                return@mapNotNull BarChart(
+                    k,
+                    rawData,
+                    objectMapper.writeValueAsString(formatted)
+                )
+            }
+            .toList()
+    }
+
+    private fun formatDataSet(rawData: List<BarChartDataSet>): List<DataSet> {
+        return rawData.map { bcds ->
+            DataSet(
+                bcds.label,
+                bcds.data.map { SingleDataPoint(it.label, it.value) },
+                3,
+                false
+            )
+        }
+    }
+
+    fun getMonths(year: Int): List<BarChart> {
+        return repo.findById_InstantAndId_DateGreaterThanEqualAndId_DateLessThanOrderById_DateAsc(
+            NIL_INSTANT,
+            LocalDate.of(year, 1, 1),
+            LocalDate.of(year + 1, 1, 1)
+        )
+            .groupBy { it.chartGroup }.entries
+            .mapNotNull { (k, v) ->
+                val config = getConfig(v[0].id.mqttTopic)
+                if (config.multiDayCombination == MultiDayAggregation.NONE) {
+                    return@mapNotNull null
+                }
+                val rawData = v.groupBy { it.id.mqttTopic }.entries.map { (topic, points) ->
+                    BarChartDataSet(topic, points.perMonth(config.multiDayCombination))
+                }
+                val formatted: List<DataSet> = formatDataSet(rawData)
+                return@mapNotNull BarChart(
+                    k,
+                    rawData,
+                    objectMapper.writeValueAsString(formatted)
+                )
+            }
+            .toList()
+    }
+
+    private fun getConfig(topic: String): PointStreamConfiguration {
+        return config.pointConfigs.find { conf ->
+            val substringAfterLast = topic.substringAfterLast('/')
+            val positionFilter = conf.positionFilter
+            positionFilter.endsWith("/$substringAfterLast")
+        }!!
+    }
+
+    fun getDayLinks(month: Month, year: Int): List<LabeledLinks> = 1.until(31).mapNotNull { d ->
+        try {
+            return@mapNotNull LocalDate.of(year, month, d)
+        } catch (e: Exception) {
+            return@mapNotNull null
+        }
+    }.map { ld ->
+        LabeledLinks(
+            ld.format(DateTimeFormatter.ISO_DATE),
+            "/daily/${ld.format(DateTimeFormatter.ISO_DATE)}"
+        )
+    }
+
+    fun getMonthLinks(year: Int): List<LabeledLinks> = 1.until(12).map { LocalDate.of(year, it, 1) }.map { ld ->
+        LabeledLinks(
+            ld.month.getDisplayName(TextStyle.FULL, Locale.GERMANY),
+            "/monthly/${ld.format(DateTimeFormatter.ISO_DATE)}"
+        )
+    }
+
     data class ForwardBackward(val previous: LocalDate?, val next: LocalDate?)
+}
+
+private fun List<MqttDataPoint>.perMonth(multiDayCombination: MultiDayAggregation): List<BarPoint> {
+    return this.groupBy { it.id.date.month }.entries.map { (m, p) ->
+        BarPoint(m.getDisplayName(TextStyle.FULL, Locale.GERMANY), p.combined(multiDayCombination))
+    }.toList()
+}
+
+private fun List<MqttDataPoint>.combined(multiDayCombination: MultiDayAggregation): Double {
+    return when (multiDayCombination) {
+        MultiDayAggregation.LAST -> this.lastOrNull()?.let { it.sumOfValues / it.numberOfValues } ?: 0.0
+        MultiDayAggregation.SUM -> this.sumOf { it.sumOfValues / it.numberOfValues }
+        MultiDayAggregation.NONE -> 0.0
+    }
+}
+
+private fun List<MqttDataPoint>.perDay(multiDayCombination: MultiDayAggregation): List<BarPoint> {
+    return this.groupBy { it.id.date.dayOfMonth }.entries.map { (m, p) ->
+        BarPoint(m.toString(), p.combined(multiDayCombination))
+    }.toList()
+}
+
+data class BarPoint(val label: String, val value: Double)
+
+data class BarChartDataSet(val label: String, val data: List<BarPoint>)
+data class BarChart(val label: String, val datasets: List<BarChartDataSet>, val dataSetsJson: String) {
 }
