@@ -1,0 +1,70 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Solar MQTT Daten</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+<body>
+
+<span th:if="${up != null}">
+<a th:href="${up}">Hoch</a>
+</span>
+<h2><span th:text="${datumHeute}">01. Januar 1970</span></h2>
+<span th:if="${previous != null}">
+<a th:href="${previous}">Vorheriger</a>
+</span>
+<span th:if="${next != null}">
+<a th:href="${next}">Nächster</a>
+</span>
+
+<div th:each="link: ${down}">
+    <a th:href="${link.href}" th:text="${link.label}">Link Label</a>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+
+<div th:each="chart: ${data}">
+
+
+    <canvas th:id="'myChart' + ${chart.label}"></canvas>
+
+    <script th:inline="text">
+        new Chart(
+        document.getElementById('myChart[(${chart.label})]')
+        , {
+          type: 'line',
+          data: {
+            datasets: [(${chart.dataSetsJson})],
+          },
+           options: {
+              responsive: true,
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                title: {
+                  display: true,
+                  text: '[[${chart.label}]]',
+                }
+              },
+              scales: {
+                  y: {
+                    title: {
+                      display: true,
+                      text: 'value'
+                    }
+                  }
+                },
+            },
+        });
+
+    </script>
+
+</div>
+
+
+</body>
+</html>

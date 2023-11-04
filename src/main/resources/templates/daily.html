@@ -1,0 +1,80 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Solar MQTT Daten</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+<body>
+
+<span th:if="${up != null}">
+<a th:href="${up}">Hoch</a>
+</span>
+<h2><span th:text="${datumHeute}">01. Januar 1970</span></h2>
+<span th:if="${previous != null}">
+<a th:href="${previous}">Vorheriger</a>
+</span>
+<span th:if="${next != null}">
+<a th:href="${next}">Nächster</a>
+</span>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<div th:each="metric: ${metrics}">
+
+    <div th:if="${metric.directValue != null}">
+        <h4><span th:text="${metric.label}">XYZ</span></h4>
+        <span th:text="${metric.directValue}">42.0</span> <span th:text="${metric.suffixUnit}">L</span>
+    </div>
+    <div th:if="${metric.dataSetsJson != null}">
+
+        <canvas th:id="'myChart' + ${metric.label}"></canvas>
+
+        <script th:inline="text">
+            new Chart(
+            document.getElementById('myChart[(${metric.label})]')
+            , {
+              type: 'line',
+              data: {
+                datasets: [(${metric.dataSetsJson})],
+              },
+               options: {
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      position: 'top',
+                    },
+                    title: {
+                      display: true,
+                      text: '[[${metric.label}]]',
+                    }
+                  },
+                  scales: {
+                      x: {
+                        type: 'time',
+                        time: {
+                          unit: 'minute'
+                        },
+                        title: {
+                          display: true,
+                          text: 'Date'
+                        }
+                      },
+                      y: {
+                        title: {
+                          display: true,
+                          text: 'value'
+                        }
+                      }
+                    },
+                },
+            });
+
+        </script>
+    </div>
+
+</div>
+
+</body>
+</html>

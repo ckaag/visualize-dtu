@@ -1,9 +1,6 @@
 package com.github.ckaag.visualizedtu.writer
 
-import com.github.ckaag.visualizedtu.core.MqttDataPoint
-import com.github.ckaag.visualizedtu.core.MqttDataPointRepository
-import com.github.ckaag.visualizedtu.core.PointStreamConfiguration
-import com.github.ckaag.visualizedtu.core.toId
+import com.github.ckaag.visualizedtu.core.*
 import jakarta.annotation.PostConstruct
 import org.eclipse.paho.client.mqttv3.MqttClient
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions
@@ -28,14 +25,14 @@ class SqliteConfig {
 }
 
 @Configuration
-@EnableJpaRepositories(basePackages = arrayOf("com.github.ckaag.visualizedtu"))
+@EnableJpaRepositories(basePackages = ["com.github.ckaag.visualizedtu"])
 class JdbcConfig(private val env: org.springframework.core.env.Environment) {
 
     @Bean
     fun dataSource(): DataSource {
         val dataSource = DriverManagerDataSource()
         dataSource.setDriverClassName("org.sqlite.JDBC")
-        dataSource.url = "jdbc:sqlite:inverterdata"
+        dataSource.url = "jdbc:sqlite:inverterdatamqtt"
         dataSource.username = "sa"
         dataSource.password = "sa"
         return dataSource
@@ -71,12 +68,12 @@ class JdbcConfig(private val env: org.springframework.core.env.Environment) {
 @ConfigurationProperties(prefix = "visualizer")
 class VisualizerProperties(
     public var pointConfigs: List<PointStreamConfiguration> = listOf(
-        PointStreamConfiguration("Watt täglich", "inverter/+/+/P_AC"),
-        PointStreamConfiguration("Watt täglich", "inverter/+/+/P_DC"),
-        PointStreamConfiguration("Lebenszeit Wh", "inverter/+/+/YieldTotal", "yyyy-MM-dd'T00:00:00.000Z'"),
-        PointStreamConfiguration("Heute kWh", "inverter/+/+/YieldDay", "yyyy-MM-dd'T00:00:00.000Z'")
+        PointStreamConfiguration("Summe Gesamt", "inverter/+/+/YieldTotal", TimeAggregation.DAILY_LAST, "kWh"),
+        PointStreamConfiguration("Summe Heute", "inverter/+/+/YieldDay", TimeAggregation.DAILY_LAST, "Wh", MultiDayAggregation.SUM),
+        PointStreamConfiguration("Heute Watt", "inverter/+/+/P_AC", TimeAggregation.AVERAGE_5_MINUTES, "W"),
+        PointStreamConfiguration("Heute Watt", "inverter/+/+/P_DC", TimeAggregation.AVERAGE_5_MINUTES, "W")
     ),
-    public var publicIp: String = "192.168.0.163",
+    public var publicIp: String = "192.168.0.2",
     public var mqttPort: String = "1883",
     public var subscriberId: String = "visual-ahoy",
 )
@@ -99,8 +96,7 @@ class MqttListener(private val config: VisualizerProperties, private val repo: M
             publisher.subscribe(it.positionFilter) { topic: String?, msg: MqttMessage? ->
                 if (topic != null && msg != null) {
                     writeDataPoint(
-                        it.chartGroup,
-                        it.timePattern,
+                        it,
                         topic,
                         msg
                     )
@@ -110,18 +106,29 @@ class MqttListener(private val config: VisualizerProperties, private val repo: M
 
     }
 
-    private fun writeDataPoint(chartGroup: String, timePattern: String, topic: String, msg: MqttMessage) {
-        val id = ZonedDateTime.now().toId(topic, timePattern)
+    private fun writeDataPoint(config: PointStreamConfiguration, topic: String, msg: MqttMessage) {
+        val id = ZonedDateTime.now().toId(config, topic)
 
         val entry = repo.findById(id).orElseGet {
-            MqttDataPoint(id, chartGroup, 0.0, 0)
+            MqttDataPoint(id, config.chartGroup, 0.0, 0)
         }
 
-        val sum = entry.sumOfValues + msg.payload.let { String(it).toDouble() }
-        entry.numberOfValues += 1
-        entry.sumOfValues = sum
-        entry.chartGroup = chartGroup
+        val newValue = msg.payload.let { String(it).toDouble() }
 
+        entry.chartGroup = config.chartGroup
+
+        when (config.aggregation) {
+            TimeAggregation.DAILY_LAST -> {
+                entry.numberOfValues = 1
+                entry.sumOfValues = newValue
+            }
+
+            TimeAggregation.AVERAGE_5_MINUTES -> {
+                entry.numberOfValues += 1
+                entry.sumOfValues += newValue
+            }
+
+        }
         repo.save(entry)
     }
 }
